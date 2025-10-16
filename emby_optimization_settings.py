@@ -167,8 +167,8 @@ def disable_video_previews_and_markers(host, port, token, library_id, library_na
         # Always update the config to ensure API is called every time
         config['LibraryOptions'] = lib_options
 
-        # Post back to VirtualFolders endpoint
-        post_url = f'http://{host}:{port}/Library/VirtualFolders'
+        # Post back to VirtualFolders/LibraryOptions endpoint (not VirtualFolders to avoid duplicates)
+        post_url = f'http://{host}:{port}/Library/VirtualFolders/LibraryOptions'
         post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
 
         if post_response.status_code in [200, 204]:
@@ -232,8 +232,8 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
         # Always update the config to ensure API is called every time
         config['LibraryOptions'] = lib_options
 
-        # Post back to VirtualFolders endpoint
-        post_url = f'http://{host}:{port}/Library/VirtualFolders'
+        # Post back to VirtualFolders/LibraryOptions endpoint (not VirtualFolders to avoid duplicates)
+        post_url = f'http://{host}:{port}/Library/VirtualFolders/LibraryOptions'
         post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
 
         if post_response.status_code in [200, 204]:
@@ -270,17 +270,17 @@ def set_server_configuration(host, port, token):
 
         changes_made = 0
 
-        # Set DB cache size to 1200 MB (using correct Emby field name)
-        if config.get('DatabaseCacheSizeMB', 0) != 1200:
-            config['DatabaseCacheSizeMB'] = 1200
+        # Set DB cache size to 600 MB (using correct Emby field name)
+        if config.get('DatabaseCacheSizeMB', 0) != 600:
+            config['DatabaseCacheSizeMB'] = 600
             changes_made += 1
-            print(f"    💾 Set DB cache size to 1200 MB")
+            print(f"    💾 Set DB cache size to 600 MB")
 
-        # Set analysis row limit to 600 (using correct Emby field name)
-        if config.get('DatabaseAnalysisLimit', 0) != 600:
-            config['DatabaseAnalysisLimit'] = 600
+        # Set analysis row limit to 400 (using correct Emby field name)
+        if config.get('DatabaseAnalysisLimit', 0) != 400:
+            config['DatabaseAnalysisLimit'] = 400
             changes_made += 1
-            print(f"    📊 Set analysis row limit to 600")
+            print(f"    📊 Set analysis row limit to 400")
 
         # Always update the config to ensure API is called every time
         url = f'http://{host}:{port}/System/Configuration'
@@ -438,12 +438,9 @@ def configure_user_permissions(host, port, token, is_baremetal):
 
             # Apply changes if any were made
             if user_changes > 0:
-                # Update the user_data with modified policy
-                user_data['Policy'] = policy
-
-                # POST the full user object back
-                url = f'http://{host}:{port}/Users/{user_id}'
-                response = requests.post(url, headers=headers, json=user_data, timeout=15)
+                # POST only the policy to the correct endpoint
+                url = f'http://{host}:{port}/Users/{user_id}/Policy'
+                response = requests.post(url, headers=headers, json=policy, timeout=15)
 
                 if response.status_code in [200, 204]:
                     print(f"      ✅ Applied {user_changes} permission changes to {user_name}")
@@ -559,12 +556,9 @@ def configure_user_home_screen(host, port, token, is_baremetal):
 
             # Apply changes if any were made
             if user_changes > 0:
-                # Update the user_data with modified configuration
-                user_data['Configuration'] = config
-
-                # POST the full user object back
-                url = f'http://{host}:{port}/Users/{user_id}'
-                response = requests.post(url, headers=headers, json=user_data, timeout=15)
+                # POST only the configuration to the correct endpoint
+                url = f'http://{host}:{port}/Users/{user_id}/Configuration'
+                response = requests.post(url, headers=headers, json=config, timeout=15)
 
                 if response.status_code in [200, 204]:
                     print(f"      ✅ Applied home screen changes to {user_name}")
@@ -734,14 +728,13 @@ def optimize_emby_server(service):
     # Count actual library changes (video/metadata settings)
     library_changes = total_changes - server_config_changes
 
-    # Only reboot if library changes were made (not server config changes)
+    # Configuration changes applied without restart
     if library_changes > 0:
-        print(f"    🔄 Library settings changed - rebooting server")
-        reboot_emby_server(service)
+        print(f"    ✅ Library settings changed - applied without restart")
     elif server_config_changes > 0:
-        print(f"    ℹ️ Only server configuration changed - no reboot needed")
+        print(f"    ✅ Server configuration changed - applied without restart")
     else:
-        print(f"    ℹ️ No changes made - no reboot needed")
+        print(f"    ℹ️ No changes made")
 
     return total_changes
 
@@ -805,8 +798,8 @@ def optimize_all_emby_servers(new_only=False):
     print(f"🎬 EMBY SERVER OPTIMIZATION - {mode_text}")
     print("=" * 50)
     print("Settings to apply:")
-    print("• Set DB cache size to 1200 MB")
-    print("• Set analysis row limit to 600")
+    print("• Set DB cache size to 600 MB")
+    print("• Set analysis row limit to 400")
     print("• Scheduled task scan: 3+ hours (unlimited/baremetal exempt)")
     print("• User permissions: Enable subtitle & media downloading (unlimited/baremetal only)")
     print("• Home screen: Custom layout (unlimited/baremetal only)")
@@ -866,14 +859,14 @@ def optimize_all_emby_servers(new_only=False):
         send_discord_notification(f"🎬 **Emby Optimization Complete**\n"
                                 f"Servers optimized: {total_servers}/{len(services)}\n"
                                 f"Changes applied: {total_changes}\n"
-                                f"• DB cache size: 1200 MB\n"
-                                f"• Analysis row limit: 600\n"
+                                f"• DB cache size: 600 MB\n"
+                                f"• Analysis row limit: 400\n"
                                 f"• Scan intervals: 3+ hours (unlimited/baremetal exempt)\n"
                                 f"• User permissions: Subtitle/media downloading (unlimited/baremetal)\n"
                                 f"• Home screen: Custom layout (unlimited/baremetal)\n"
                                 f"• Video previews/markers disabled\n"
                                 f"• Auto metadata refresh disabled\n"
-                                f"• Reboot only when library changes made")
+                                f"• Settings applied without restart")
 
 def main():
     parser = argparse.ArgumentParser(description='Emby Server Optimization')
