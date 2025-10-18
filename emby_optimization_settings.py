@@ -357,6 +357,48 @@ def configure_transcoding_settings(host, port, token):
         print(f"    ❌ Error setting transcoding configuration: {e}")
         return False
 
+def uninstall_dlna_plugin(host, port, token):
+    """Uninstall DLNA plugin to reduce network overhead"""
+    try:
+        headers = {'X-Emby-Token': token}
+
+        # Get all installed plugins
+        url = f'http://{host}:{port}/emby/Plugins'
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            print(f"    ❌ Failed to get plugins list")
+            return False
+
+        plugins = response.json()
+
+        # Find DLNA plugin
+        dlna_plugin = None
+        for plugin in plugins:
+            if plugin.get('Name', '').lower() == 'dlna':
+                dlna_plugin = plugin
+                break
+
+        if not dlna_plugin:
+            print(f"    ✅ DLNA plugin already uninstalled")
+            return False
+
+        # Uninstall DLNA plugin
+        plugin_id = dlna_plugin.get('Id')
+        url = f'http://{host}:{port}/emby/Plugins/{plugin_id}'
+        response = requests.delete(url, headers=headers, timeout=10)
+
+        if response.status_code in [200, 204]:
+            print(f"    🗑️ Uninstalled DLNA plugin")
+            return True
+        else:
+            print(f"    ❌ Failed to uninstall DLNA plugin: {response.status_code}")
+            return False
+
+    except Exception as e:
+        print(f"    ❌ Error uninstalling DLNA plugin: {e}")
+        return False
+
 def configure_scheduled_tasks(host, port, token, is_baremetal):
     """Configure scheduled task settings for media library scanning"""
     try:
@@ -769,6 +811,11 @@ def optimize_emby_server(service):
         total_changes += 1
         server_config_changes += 1
 
+    # Uninstall DLNA plugin
+    if uninstall_dlna_plugin(host, port, token):
+        total_changes += 1
+        server_config_changes += 1
+
     # Configure scheduled tasks (scan intervals)
     if configure_scheduled_tasks(host, port, token, is_baremetal):
         total_changes += 1
@@ -945,6 +992,7 @@ def optimize_all_emby_servers(new_only=False):
                                 f"• DB cache size: 600 MB\n"
                                 f"• Analysis row limit: 400\n"
                                 f"• UPnP/DLNA discovery: Disabled\n"
+                                f"• DLNA plugin: Uninstalled\n"
                                 f"• Transcoding throttling: Enabled\n"
                                 f"• Collection imports: Disabled\n"
                                 f"• Scan intervals: 3+ hours (unlimited/baremetal exempt)\n"

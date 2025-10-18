@@ -14,6 +14,7 @@ Automated script that optimizes all Emby servers with the following settings:
 - Sets database cache size to 600 MB (optimized for performance)
 - Sets database analysis row limit to 400 (prevents excessive analysis)
 - Disables UPnP/DLNA discovery (reduces network scanning overhead)
+- Uninstalls DLNA plugin completely (eliminates DLNA server overhead)
 - Enables transcoding throttling (reduces CPU usage during streaming)
 
 **Library Settings (all video libraries except 'xxx'):**
@@ -119,12 +120,14 @@ This test script verifies:
 
 **Additional efficiency improvements added:**
 1. **UPnP/DLNA Discovery Disabled** - Reduces network scanning and broadcast overhead
-2. **Transcoding Throttling Enabled** - Reduces CPU usage when streaming by throttling based on buffer size
-3. **Automatic Collection Imports Disabled** - Prevents metadata processing for collection creation during scans
+2. **DLNA Plugin Uninstalled** - Completely removes DLNA server functionality to eliminate overhead
+3. **Transcoding Throttling Enabled** - Reduces CPU usage when streaming by throttling based on buffer size
+4. **Automatic Collection Imports Disabled** - Prevents metadata processing for collection creation during scans
 
 **Rollback Instructions:**
 If these changes cause issues, you can manually revert via Emby web UI:
 - **UPnP**: Settings → Network → Enable UPnP = ON
+- **DLNA Plugin**: Settings → Plugins → Catalog → Install DLNA plugin
 - **Throttling**: Settings → Transcoding → Enable throttling = OFF
 - **Collections**: Settings → Libraries → [Library] → Import collections = ON
 
