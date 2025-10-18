@@ -168,9 +168,9 @@ def disable_video_previews_and_markers(host, port, token, library_id, library_na
         config['LibraryOptions'] = lib_options
 
         # Update library options using library ID to avoid creating duplicates
-        # POST the full config object, not just lib_options
+        # POST ONLY the LibraryOptions object to avoid clearing Locations
         post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
-        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
+        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
@@ -240,9 +240,9 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
         config['LibraryOptions'] = lib_options
 
         # Update library options using library ID to avoid creating duplicates
-        # POST the full config object, not just lib_options
+        # POST ONLY the LibraryOptions object to avoid clearing Locations
         post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
-        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
+        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
