@@ -30,6 +30,11 @@ Automated script that optimizes all Emby servers with the following settings:
 **Scheduled Tasks:**
 - Sets media library scan interval to minimum 3 hours (limited servers only)
 - Unlimited/Baremetal servers keep default scan schedule
+- Disables "Scan Metadata Folder" task (no scheduled runs)
+- Disables "Download subtitles" task (no scheduled runs)
+- Sets "Vacuum Database" to run every 7 days
+- Sets "Import playstates from Trakt.tv" to minimum 3 hours (limited servers only)
+- Disables "Export Library to Trakt" task (no scheduled runs)
 
 **User Permissions (Unlimited/Baremetal only):**
 - Enables subtitle downloading for all users

@@ -419,13 +419,14 @@ def configure_scheduled_tasks(host, port, token, is_baremetal):
 
         changes_made = 0
 
-        # Find media library scan task and video preview task
+        # Find and configure various scheduled tasks
         for task in tasks:
             task_name = task.get('Name', '').lower()
             task_id = task.get('Id', '')
+            task_key = task.get('Key', '')
 
             # Disable video preview thumbnail extraction task
-            if 'video preview' in task_name or task.get('Key') == 'RefreshChapterImages':
+            if 'video preview' in task_name or task_key == 'RefreshChapterImages':
                 print(f"    🎬 Found task: {task.get('Name')}")
                 triggers = task.get('Triggers', [])
                 if len(triggers) > 0:
@@ -439,6 +440,106 @@ def configure_scheduled_tasks(host, port, token, is_baremetal):
                         print(f"    ❌ Failed to disable video preview task: {response.status_code}")
                 else:
                     print(f"    ✅ Video preview task already disabled")
+
+            # Disable "Scan Metadata Folder" task
+            elif 'scan metadata' in task_name or task_key == 'ScanInternalMetadataFolderTask':
+                print(f"    📂 Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                if len(triggers) > 0:
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=[], timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Disabled scan metadata folder task")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to disable scan metadata task: {response.status_code}")
+                else:
+                    print(f"    ✅ Scan metadata task already disabled")
+
+            # Disable "Download subtitles" task
+            elif 'download subtitle' in task_name or task_key == 'DownloadSubtitles':
+                print(f"    📥 Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                if len(triggers) > 0:
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=[], timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Disabled download subtitles task")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to disable download subtitles task: {response.status_code}")
+                else:
+                    print(f"    ✅ Download subtitles task already disabled")
+
+            # Set "Vacuum Database" to run every 7 days
+            elif 'vacuum' in task_name or task_key == 'VacuumDatabase':
+                print(f"    🗄️ Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                seven_days_ticks = 7 * 24 * 60 * 60 * 10000000  # 7 days in 100-nanosecond intervals
+
+                needs_update = False
+                if len(triggers) == 0:
+                    needs_update = True
+                elif len(triggers) > 0:
+                    trigger = triggers[0]
+                    if trigger.get('Type') == 'IntervalTrigger' and trigger.get('IntervalTicks') != seven_days_ticks:
+                        needs_update = True
+                    elif trigger.get('Type') != 'IntervalTrigger':
+                        needs_update = True
+
+                if needs_update:
+                    new_triggers = [{"Type": "IntervalTrigger", "IntervalTicks": seven_days_ticks}]
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=new_triggers, timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Set vacuum database to run every 7 days")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to update vacuum database schedule: {response.status_code}")
+                else:
+                    print(f"    ✅ Vacuum database already set to 7 days")
+
+            # Handle Trakt import/export tasks (if they exist)
+            elif 'trakt' in task_name and 'import' in task_name:
+                print(f"    📺 Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                three_hours_ticks = 3 * 60 * 60 * 10000000  # 3 hours minimum
+
+                if is_baremetal:
+                    print(f"    🏗️ Unlimited/Baremetal server - keeping Trakt import schedule")
+                    continue
+
+                needs_update = False
+                if len(triggers) > 0:
+                    trigger = triggers[0]
+                    if trigger.get('Type') == 'IntervalTrigger' and trigger.get('IntervalTicks', 0) < three_hours_ticks:
+                        needs_update = True
+
+                if needs_update:
+                    new_triggers = [{"Type": "IntervalTrigger", "IntervalTicks": three_hours_ticks}]
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=new_triggers, timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Set Trakt import to minimum 3 hours")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to update Trakt import schedule: {response.status_code}")
+                else:
+                    print(f"    ✅ Trakt import already set to 3+ hours")
+
+            elif 'trakt' in task_name and 'export' in task_name:
+                print(f"    📤 Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                if len(triggers) > 0:
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=[], timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Disabled Trakt export task")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to disable Trakt export task: {response.status_code}")
+                else:
+                    print(f"    ✅ Trakt export task already disabled")
 
             # Configure media library scan interval
             elif 'scan media library' in task_name or 'library scan' in task_name:
