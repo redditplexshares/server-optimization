@@ -168,8 +168,9 @@ def disable_video_previews_and_markers(host, port, token, library_id, library_na
         config['LibraryOptions'] = lib_options
 
         # Update library options using library ID to avoid creating duplicates
+        # POST the full config object, not just lib_options
         post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
-        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
+        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
@@ -233,8 +234,9 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
         config['LibraryOptions'] = lib_options
 
         # Update library options using library ID to avoid creating duplicates
+        # POST the full config object, not just lib_options
         post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
-        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
+        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
@@ -320,12 +322,29 @@ def configure_scheduled_tasks(host, port, token, is_baremetal):
 
         changes_made = 0
 
-        # Find media library scan task
+        # Find media library scan task and video preview task
         for task in tasks:
             task_name = task.get('Name', '').lower()
             task_id = task.get('Id', '')
 
-            if 'scan media library' in task_name or 'library scan' in task_name:
+            # Disable video preview thumbnail extraction task
+            if 'video preview' in task_name or task.get('Key') == 'RefreshChapterImages':
+                print(f"    🎬 Found task: {task.get('Name')}")
+                triggers = task.get('Triggers', [])
+                if len(triggers) > 0:
+                    # Remove all triggers to disable the task
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}/Triggers'
+                    response = requests.post(url, headers=headers, json=[], timeout=10)
+                    if response.status_code in [200, 204]:
+                        print(f"    ✅ Disabled video preview thumbnail extraction task")
+                        changes_made += 1
+                    else:
+                        print(f"    ❌ Failed to disable video preview task: {response.status_code}")
+                else:
+                    print(f"    ✅ Video preview task already disabled")
+
+            # Configure media library scan interval
+            elif 'scan media library' in task_name or 'library scan' in task_name:
                 print(f"    📅 Found task: {task.get('Name')}")
 
                 if is_baremetal:

@@ -106,6 +106,12 @@ This test script verifies:
 - **Root Cause**: POSTing to `/Users/{user_id}` endpoint
 - **Fix**: Changed to POST to `/emby/Users/{user_id}/Configuration` endpoint
 
+**5. Video Preview Thumbnail Extraction Task (Fixed 2025-10-18):**
+- **Issue**: Daily scheduled task for "Video preview thumbnail extraction" was still running at 2:00 AM despite library settings being disabled
+- **Root Cause**: Scheduled tasks have independent triggers that need to be removed separately from library settings
+- **Fix**: Added code to remove all triggers from the video preview task by POSTing empty array to `/emby/ScheduledTasks/{task_id}/Triggers`
+- **Impact**: Prevents unnecessary CPU and disk usage from thumbnail extraction task running nightly
+
 #### Configuration Files:
 
 The script uses the following settings:
