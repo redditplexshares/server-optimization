@@ -230,6 +230,12 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
         else:
             print(f"    ℹ️ Keeping realtime monitoring enabled for xxx library: {library_name}")
 
+        # Disable automatic collection imports (reduces metadata processing)
+        if lib_options.get('ImportCollections', True):
+            lib_options['ImportCollections'] = False
+            changes_made += 1
+            print(f"    📦 Disabled automatic collection imports for {library_name}")
+
         # Always update the config to ensure API is called every time
         config['LibraryOptions'] = lib_options
 
@@ -284,6 +290,12 @@ def set_server_configuration(host, port, token):
             changes_made += 1
             print(f"    📊 Set analysis row limit to 400")
 
+        # Disable UPnP/DLNA (reduces network scanning overhead)
+        if config.get('EnableUPnP', True):
+            config['EnableUPnP'] = False
+            changes_made += 1
+            print(f"    🌐 Disabled UPnP/DLNA discovery")
+
         # Always update the config to ensure API is called every time
         url = f'http://{host}:{port}/emby/System/Configuration'
         response = requests.post(url, headers=headers, json=config, timeout=10)
@@ -300,6 +312,49 @@ def set_server_configuration(host, port, token):
 
     except Exception as e:
         print(f"    ❌ Error setting server configuration: {e}")
+        return False
+
+def configure_transcoding_settings(host, port, token):
+    """Configure transcoding/encoding settings for efficiency"""
+    try:
+        headers = {
+            'X-Emby-Token': token,
+            'Content-Type': 'application/json'
+        }
+
+        # Get current encoding configuration
+        url = f'http://{host}:{port}/emby/System/Configuration/encoding'
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            print(f"    ❌ Failed to get encoding configuration")
+            return False
+
+        config = response.json()
+        changes_made = 0
+
+        # Enable transcoding throttling (reduces CPU usage during streaming)
+        if not config.get('EnableThrottling', False):
+            config['EnableThrottling'] = True
+            changes_made += 1
+            print(f"    ⚡ Enabled transcoding throttling")
+
+        # Always update the config to ensure API is called every time
+        url = f'http://{host}:{port}/emby/System/Configuration/encoding'
+        response = requests.post(url, headers=headers, json=config, timeout=10)
+
+        if response.status_code in [200, 204]:
+            if changes_made > 0:
+                print(f"    ✅ Applied {changes_made} transcoding configuration change(s)")
+            else:
+                print(f"    ✅ Transcoding configuration verified/updated")
+            return changes_made > 0
+        else:
+            print(f"    ❌ Failed to apply transcoding configuration: {response.status_code}")
+            return False
+
+    except Exception as e:
+        print(f"    ❌ Error setting transcoding configuration: {e}")
         return False
 
 def configure_scheduled_tasks(host, port, token, is_baremetal):
@@ -706,6 +761,11 @@ def optimize_emby_server(service):
 
     # First, set server-wide configuration
     if set_server_configuration(host, port, token):
+        total_changes += 1
+        server_config_changes += 1
+
+    # Configure transcoding/encoding settings
+    if configure_transcoding_settings(host, port, token):
         total_changes += 1
         server_config_changes += 1
 

@@ -13,6 +13,8 @@ Automated script that optimizes all Emby servers with the following settings:
 **Server-Wide Settings:**
 - Sets database cache size to 600 MB (optimized for performance)
 - Sets database analysis row limit to 400 (prevents excessive analysis)
+- Disables UPnP/DLNA discovery (reduces network scanning overhead)
+- Enables transcoding throttling (reduces CPU usage during streaming)
 
 **Library Settings (all video libraries except 'xxx'):**
 - Disables video preview thumbnail generation
@@ -22,6 +24,7 @@ Automated script that optimizes all Emby servers with the following settings:
 - Disables marker detection
 - Disables automatic metadata refresh (sets to 0 days)
 - Disables real-time monitoring (except for xxx libraries)
+- Disables automatic collection imports (reduces metadata processing)
 
 **Scheduled Tasks:**
 - Sets media library scan interval to minimum 3 hours (limited servers only)
@@ -111,6 +114,24 @@ This test script verifies:
 - **Root Cause**: Scheduled tasks have independent triggers that need to be removed separately from library settings
 - **Fix**: Added code to remove all triggers from the video preview task by POSTing empty array to `/emby/ScheduledTasks/{task_id}/Triggers`
 - **Impact**: Prevents unnecessary CPU and disk usage from thumbnail extraction task running nightly
+
+#### Optimization Enhancements (2025-10-18):
+
+**Additional efficiency improvements added:**
+1. **UPnP/DLNA Discovery Disabled** - Reduces network scanning and broadcast overhead
+2. **Transcoding Throttling Enabled** - Reduces CPU usage when streaming by throttling based on buffer size
+3. **Automatic Collection Imports Disabled** - Prevents metadata processing for collection creation during scans
+
+**Rollback Instructions:**
+If these changes cause issues, you can manually revert via Emby web UI:
+- **UPnP**: Settings → Network → Enable UPnP = ON
+- **Throttling**: Settings → Transcoding → Enable throttling = OFF
+- **Collections**: Settings → Libraries → [Library] → Import collections = ON
+
+Or run this script to revert programmatically:
+```bash
+python3 /data/server_optimize/rollback_optimizations.py --service-id <ID>
+```
 
 #### Configuration Files:
 
