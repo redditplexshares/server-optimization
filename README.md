@@ -14,7 +14,7 @@ Automated script that optimizes all Emby servers with the following settings:
 - Sets database cache size to 600 MB (optimized for performance)
 - Sets database analysis row limit to 400 (prevents excessive analysis)
 - Disables UPnP/DLNA discovery (reduces network scanning overhead)
-- Uninstalls DLNA plugin completely (eliminates DLNA server overhead)
+- Uninstalls unnecessary plugins: DLNA, Auto Organize, Folder Sync, Reports, StudioCleaner
 - Enables transcoding throttling (reduces CPU usage during streaming)
 
 **Library Settings (all video libraries except 'xxx'):**

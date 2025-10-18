@@ -357,10 +357,20 @@ def configure_transcoding_settings(host, port, token):
         print(f"    ❌ Error setting transcoding configuration: {e}")
         return False
 
-def uninstall_dlna_plugin(host, port, token):
-    """Uninstall DLNA plugin to reduce network overhead"""
+def uninstall_unnecessary_plugins(host, port, token):
+    """Uninstall unnecessary plugins to reduce overhead"""
     try:
         headers = {'X-Emby-Token': token}
+
+        # List of plugins to uninstall (lowercase for comparison)
+        plugins_to_remove = [
+            'dlna',
+            'auto organize',
+            'folder sync',
+            'reports',
+            'studiocleaner',
+            'studio cleaner'
+        ]
 
         # Get all installed plugins
         url = f'http://{host}:{port}/emby/Plugins'
@@ -371,32 +381,34 @@ def uninstall_dlna_plugin(host, port, token):
             return False
 
         plugins = response.json()
+        changes_made = 0
 
-        # Find DLNA plugin
-        dlna_plugin = None
+        # Find and uninstall unnecessary plugins
         for plugin in plugins:
-            if plugin.get('Name', '').lower() == 'dlna':
-                dlna_plugin = plugin
-                break
+            plugin_name = plugin.get('Name', '').lower()
 
-        if not dlna_plugin:
-            print(f"    ✅ DLNA plugin already uninstalled")
+            if plugin_name in plugins_to_remove:
+                plugin_id = plugin.get('Id')
+                plugin_display_name = plugin.get('Name')
+
+                # Uninstall plugin
+                url = f'http://{host}:{port}/emby/Plugins/{plugin_id}'
+                response = requests.delete(url, headers=headers, timeout=10)
+
+                if response.status_code in [200, 204]:
+                    print(f"    🗑️ Uninstalled plugin: {plugin_display_name}")
+                    changes_made += 1
+                else:
+                    print(f"    ❌ Failed to uninstall {plugin_display_name}: {response.status_code}")
+
+        if changes_made == 0:
+            print(f"    ✅ All unnecessary plugins already uninstalled")
             return False
 
-        # Uninstall DLNA plugin
-        plugin_id = dlna_plugin.get('Id')
-        url = f'http://{host}:{port}/emby/Plugins/{plugin_id}'
-        response = requests.delete(url, headers=headers, timeout=10)
-
-        if response.status_code in [200, 204]:
-            print(f"    🗑️ Uninstalled DLNA plugin")
-            return True
-        else:
-            print(f"    ❌ Failed to uninstall DLNA plugin: {response.status_code}")
-            return False
+        return True
 
     except Exception as e:
-        print(f"    ❌ Error uninstalling DLNA plugin: {e}")
+        print(f"    ❌ Error uninstalling plugins: {e}")
         return False
 
 def configure_scheduled_tasks(host, port, token, is_baremetal):
@@ -912,8 +924,8 @@ def optimize_emby_server(service):
         total_changes += 1
         server_config_changes += 1
 
-    # Uninstall DLNA plugin
-    if uninstall_dlna_plugin(host, port, token):
+    # Uninstall unnecessary plugins
+    if uninstall_unnecessary_plugins(host, port, token):
         total_changes += 1
         server_config_changes += 1
 
@@ -1093,7 +1105,7 @@ def optimize_all_emby_servers(new_only=False):
                                 f"• DB cache size: 600 MB\n"
                                 f"• Analysis row limit: 400\n"
                                 f"• UPnP/DLNA discovery: Disabled\n"
-                                f"• DLNA plugin: Uninstalled\n"
+                                f"• Unnecessary plugins uninstalled: DLNA, Auto Organize, Folder Sync, Reports, StudioCleaner\n"
                                 f"• Transcoding throttling: Enabled\n"
                                 f"• Collection imports: Disabled\n"
                                 f"• Scan intervals: 3+ hours (unlimited/baremetal exempt)\n"
