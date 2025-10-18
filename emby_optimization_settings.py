@@ -47,8 +47,8 @@ def get_emby_services():
                         retry_delay *= 2  # Exponential backoff
                         continue
                     else:
-                        print(f"❌ Rate limited after {max_retries} retries, giving up")
-                        return []
+                        print(f"❌ Rate limited after {max_retries} retries, using {len(all_services)} services already fetched")
+                        break  # Exit to filtering
 
                 elif response.status_code != 200:
                     print(f"❌ Kronos API error: {response.status_code}")
@@ -96,8 +96,8 @@ def get_emby_services():
 def get_emby_libraries(host, port, token):
     """Get all libraries from Emby server"""
     try:
-        headers = {'X-Emby-Authorization': f'MediaBrowser Token="{token}"'}
-        url = f'http://{host}:{port}/Library/VirtualFolders'
+        headers = {'X-Emby-Token': token}
+        url = f'http://{host}:{port}/emby/Library/VirtualFolders'
 
         response = requests.get(url, headers=headers, timeout=10)
 
@@ -115,12 +115,12 @@ def disable_video_previews_and_markers(host, port, token, library_id, library_na
     """Disable video preview generation and chapter markers for a library"""
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get current library configuration using correct endpoint
-        url = f'http://{host}:{port}/Library/VirtualFolders?name={library_name}'
+        url = f'http://{host}:{port}/emby/Library/VirtualFolders?name={library_name}'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -167,9 +167,9 @@ def disable_video_previews_and_markers(host, port, token, library_id, library_na
         # Always update the config to ensure API is called every time
         config['LibraryOptions'] = lib_options
 
-        # Post back to VirtualFolders/LibraryOptions endpoint (not VirtualFolders to avoid duplicates)
-        post_url = f'http://{host}:{port}/Library/VirtualFolders/LibraryOptions'
-        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
+        # Update library options using library ID to avoid creating duplicates
+        post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
+        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
@@ -189,12 +189,12 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
     """Disable automatic metadata refresh for a library"""
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get current library configuration using correct endpoint
-        url = f'http://{host}:{port}/Library/VirtualFolders?name={library_name}'
+        url = f'http://{host}:{port}/emby/Library/VirtualFolders?name={library_name}'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -232,9 +232,9 @@ def disable_auto_refresh_metadata(host, port, token, library_id, library_name):
         # Always update the config to ensure API is called every time
         config['LibraryOptions'] = lib_options
 
-        # Post back to VirtualFolders/LibraryOptions endpoint (not VirtualFolders to avoid duplicates)
-        post_url = f'http://{host}:{port}/Library/VirtualFolders/LibraryOptions'
-        post_response = requests.post(post_url, headers=headers, json=config, timeout=15)
+        # Update library options using library ID to avoid creating duplicates
+        post_url = f'http://{host}:{port}/emby/Library/VirtualFolders/LibraryOptions?id={library_id}'
+        post_response = requests.post(post_url, headers=headers, json=lib_options, timeout=15)
 
         if post_response.status_code in [200, 204]:
             if changes_made > 0:
@@ -254,12 +254,12 @@ def set_server_configuration(host, port, token):
     """Set server-wide configuration settings"""
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get current server configuration
-        url = f'http://{host}:{port}/System/Configuration'
+        url = f'http://{host}:{port}/emby/System/Configuration'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -283,7 +283,7 @@ def set_server_configuration(host, port, token):
             print(f"    📊 Set analysis row limit to 400")
 
         # Always update the config to ensure API is called every time
-        url = f'http://{host}:{port}/System/Configuration'
+        url = f'http://{host}:{port}/emby/System/Configuration'
         response = requests.post(url, headers=headers, json=config, timeout=10)
 
         if response.status_code in [200, 204]:
@@ -304,12 +304,12 @@ def configure_scheduled_tasks(host, port, token, is_baremetal):
     """Configure scheduled task settings for media library scanning"""
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get current scheduled tasks
-        url = f'http://{host}:{port}/ScheduledTasks'
+        url = f'http://{host}:{port}/emby/ScheduledTasks'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -344,7 +344,7 @@ def configure_scheduled_tasks(host, port, token, is_baremetal):
                         'IsEnabled': True
                     }
 
-                    url = f'http://{host}:{port}/ScheduledTasks/{task_id}'
+                    url = f'http://{host}:{port}/emby/ScheduledTasks/{task_id}'
                     response = requests.post(url, headers=headers, json=task_update, timeout=10)
 
                     if response.status_code in [200, 204]:
@@ -369,12 +369,12 @@ def configure_user_permissions(host, port, token, is_baremetal):
 
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get all users
-        url = f'http://{host}:{port}/Users'
+        url = f'http://{host}:{port}/emby/Users'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -398,7 +398,7 @@ def configure_user_permissions(host, port, token, is_baremetal):
             print(f"    👤 Configuring permissions for: {user_name}")
 
             # Get current user data (contains Policy)
-            url = f'http://{host}:{port}/Users/{user_id}'
+            url = f'http://{host}:{port}/emby/Users/{user_id}'
             response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code != 200:
@@ -439,7 +439,7 @@ def configure_user_permissions(host, port, token, is_baremetal):
             # Apply changes if any were made
             if user_changes > 0:
                 # POST only the policy to the correct endpoint
-                url = f'http://{host}:{port}/Users/{user_id}/Policy'
+                url = f'http://{host}:{port}/emby/Users/{user_id}/Policy'
                 response = requests.post(url, headers=headers, json=policy, timeout=15)
 
                 if response.status_code in [200, 204]:
@@ -467,12 +467,12 @@ def configure_user_home_screen(host, port, token, is_baremetal):
 
     try:
         headers = {
-            'X-Emby-Authorization': f'MediaBrowser Token="{token}"',
+            'X-Emby-Token': token,
             'Content-Type': 'application/json'
         }
 
         # Get all users
-        url = f'http://{host}:{port}/Users'
+        url = f'http://{host}:{port}/emby/Users'
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
@@ -491,7 +491,7 @@ def configure_user_home_screen(host, port, token, is_baremetal):
             print(f"    👤 Configuring home screen for: {user_name}")
 
             # Get current user data (contains Configuration)
-            url = f'http://{host}:{port}/Users/{user_id}'
+            url = f'http://{host}:{port}/emby/Users/{user_id}'
             response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code != 200:
@@ -557,7 +557,7 @@ def configure_user_home_screen(host, port, token, is_baremetal):
             # Apply changes if any were made
             if user_changes > 0:
                 # POST only the configuration to the correct endpoint
-                url = f'http://{host}:{port}/Users/{user_id}/Configuration'
+                url = f'http://{host}:{port}/emby/Users/{user_id}/Configuration'
                 response = requests.post(url, headers=headers, json=config, timeout=15)
 
                 if response.status_code in [200, 204]:
@@ -649,28 +649,32 @@ def optimize_emby_server(service):
     product_name = service.get('product_name', '').lower()
     is_baremetal = 'baremetal' in product_name or 'unlimited' in product_name
 
-    # Get fresh API key from Kronos with fallback to existing token
-    existing_token = service.get('media_player_api_key')
-    token = get_fresh_api_key(service_id, fallback_token=existing_token)
+    # Use existing token from service data
+    token = service.get('media_player_api_key')
 
     if not token:
-        print(f"   ❌ No API token available (Kronos or fallback)")
+        print(f"   ❌ No API token available")
         return 0
 
     print(f"\n🎬 Optimizing: {server_name} ({owner})")
     print(f"   Host: {host}:{port}")
     print(f"   Product: {service.get('product_name', 'Unknown')} {'[UNLIMITED/BAREMETAL]' if is_baremetal else ''}")
-    if token == existing_token:
-        print(f"   🔑 Using existing API token (Kronos unavailable/rate limited)")
-    else:
-        print(f"   ✅ Fresh API key retrieved from Kronos")
+    print(f"   🔑 Using cached API token")
 
     if not host or not port:
         print(f"   ❌ Missing connection details")
         return 0
 
-    # Get all libraries
+    # Try to get libraries with existing token
     libraries = get_emby_libraries(host, port, token)
+
+    # If existing token failed, try to get fresh one from Kronos as fallback
+    if not libraries:
+        print(f"   ⚠️ Token failed, fetching fresh API key from Kronos...")
+        token = get_fresh_api_key(service_id, fallback_token=token)
+        if token:
+            print(f"   ✅ Fresh API key retrieved, retrying...")
+            libraries = get_emby_libraries(host, port, token)
 
     if not libraries:
         print(f"   ❌ Could not get libraries")

@@ -80,23 +80,31 @@ This test script verifies:
 
 #### Bug Fixes Implemented:
 
-**1. User Permission Updates (Fixed):**
+**1. Incorrect Emby API Endpoints (CRITICAL - Fixed 2025-10-18):**
+- **Issue**: All API calls were failing or creating duplicates
+- **Root Cause**: Missing `/emby/` prefix in URLs and wrong authorization header format
+- **Fix**:
+  - Changed ALL endpoints to include `/emby/` prefix (e.g., `/Library/VirtualFolders` → `/emby/Library/VirtualFolders`)
+  - Changed auth header from `X-Emby-Authorization: MediaBrowser Token="..."` to `X-Emby-Token: ...`
+  - Affected endpoints: VirtualFolders, System/Configuration, ScheduledTasks, Users, Policy, Configuration
+
+**2. Library Duplication Bug (CRITICAL - Fixed 2025-10-18):**
+- **Issue**: Script was creating 10+ duplicate libraries on every run (e.g., 56 copies of "4K Movies")
+- **Root Cause**: POSTing library config to `/Library/VirtualFolders/LibraryOptions` without library ID
+- **Fix**:
+  - Changed to POST to `/emby/Library/VirtualFolders/LibraryOptions?id={library_id}`
+  - POST only the `LibraryOptions` object, not the entire config
+  - This updates the existing library instead of creating a new one
+
+**3. User Permission Updates (Fixed):**
 - **Issue**: User permissions weren't persisting
 - **Root Cause**: POSTing to `/Users/{user_id}` endpoint
-- **Fix**: Changed to POST to `/Users/{user_id}/Policy` endpoint
+- **Fix**: Changed to POST to `/emby/Users/{user_id}/Policy` endpoint
 
-**2. User Home Screen Updates (Fixed):**
+**4. User Home Screen Updates (Fixed):**
 - **Issue**: Home screen configuration wasn't persisting
 - **Root Cause**: POSTing to `/Users/{user_id}` endpoint
-- **Fix**: Changed to POST to `/Users/{user_id}/Configuration` endpoint
-
-**3. Library Duplication Bug (CRITICAL - Fixed):**
-- **Issue**: Script was creating 10+ duplicate libraries on every run
-- **Root Cause**: POSTing to `/Library/VirtualFolders` without proper identification
-- **Fix**:
-  - Changed to find libraries by ItemId (unique identifier)
-  - Changed POST endpoint to `/Library/VirtualFolders/LibraryOptions`
-  - Now updates existing libraries without creating duplicates
+- **Fix**: Changed to POST to `/emby/Users/{user_id}/Configuration` endpoint
 
 #### Configuration Files:
 
@@ -137,8 +145,15 @@ Script for managing Plex server settings (see file for details).
 
 ## Recent Updates
 
+**2025-10-18:**
+- **CRITICAL FIX**: Corrected all Emby API endpoint URLs to include `/emby/` prefix
+- **CRITICAL FIX**: Fixed library duplication bug - now uses library ID to update instead of create
+- Changed auth header format from `X-Emby-Authorization` to `X-Emby-Token` (correct format)
+- Library updates now POST LibraryOptions object directly with `?id={library_id}` parameter
+- All API calls now match the format used by the working duplicate cleanup script
+
 **2025-10-16:**
-- Fixed critical library duplication bug in Emby optimization script
+- Fixed critical library duplication bug in Emby optimization script (partial fix)
 - Fixed user permissions and home screen configuration not persisting
 - Added comprehensive test script for Louie server verification
 - Updated database cache from 1200 MB to 600 MB
